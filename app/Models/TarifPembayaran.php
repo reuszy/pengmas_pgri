@@ -10,7 +10,7 @@ class TarifPembayaran extends Model
     use HasFactory;
 
     protected $table = 'tarif_pembayaran';
-    protected $primaryKey = 'id_tarif_pembayaran';
+    protected $primaryKey = 'id_tarif';
 
     protected $fillable = [
         'jenis_pembayaran',
@@ -19,6 +19,6 @@ class TarifPembayaran extends Model
 
     public function pembayaran()
     {
-        return $this->hasMany(Pembayaran::class, 'id_tarif_pembayaran');
+        return $this->hasMany(Pembayaran::class, 'jenis_pembayaran', 'jenis_pembayaran');
     }
 }

@@ -18,6 +18,7 @@ class Siswa extends Model
     protected $fillable = [
         'nis',
         'id_pengguna',
+        'nama',
         'tanggal_lahir',
         'id_kelas',
         'nomor_telepon',
@@ -25,20 +26,23 @@ class Siswa extends Model
         'password'
     ];
 
+
+    protected $hidden = [
+        'password',
+    ];
+
+
     public function pengguna()
     {
         return $this->belongsTo(Pengguna::class, 'id_pengguna', 'id_pengguna');
     }
+
+    
     public function kelas()
     {
         return $this->belongsTo(Kelas::class, 'id_kelas', 'id');
     }
 
-
-    public function dataSiswa()
-    {
-        return $this->hasOne(DataSiswa::class, 'nis', 'nis');
-    }
 
     public function pembayaran()
     {

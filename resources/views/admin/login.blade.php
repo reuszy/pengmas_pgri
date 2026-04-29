@@ -28,7 +28,7 @@
 
             <div class="flex items-center gap-10 mb-5">
                 <label class="text-sm font-medium text-gray-700 w-40">Username</label>
-                <input type="text" id="nis" name="nis"
+                <input type="text" id="username" name="username"
                        class="rounded-lg bg-blue-100 px-2 py-1 w-full mt-2">
             </div>
 
@@ -49,24 +49,17 @@
 
             <div class="flex flex-col items-center justify-center mt-8 relative w-full">
 
-                <!-- Notif field -->
-                @if ($errors->has('login_error'))
+                {{-- Error dari hasil login --}}
+                @if (session()->has('error'))
                     <div class="text-red-500 text-sm text-center mb-3">
-                        {{ $errors->first('login_error') }}
+                        {{ session('error') }}
                     </div>
                 @endif
 
                 {{-- Error jika field kosong --}}
-                @if ($errors->has('nis') || $errors->has('password'))
+                @if ($errors->has('username') || $errors->has('password'))
                     <div class="text-red-500 text-sm text-center mb-3">
                         Silakan isi Username dan Password!
-                    </div>
-                @endif
-
-                {{-- Error dari hasil login --}}
-                @if ($errors->has('login_error'))
-                    <div class="text-red-500 text-sm text-center mb-3">
-                        {{ $errors->first('login_error') }}
                     </div>
                 @endif
 

@@ -12,6 +12,7 @@ class Pembayaran extends Model
         'nis',
         'id_kelas',
         'jenis_pembayaran',
+        'order_id',
         'jumlah',
         'tanggal_bayar',
         'status',
@@ -22,8 +23,15 @@ class Pembayaran extends Model
         return $this->belongsTo(Siswa::class, 'nis', 'nis');
     }
 
+
     public function kelas()
     {
         return $this->belongsTo(Kelas::class, 'id_kelas', 'id');
+    }
+
+
+    public function tarif()
+    {
+        return $this->belongsTo(TarifPembayaran::class, 'jenis_pembayaran', 'jenis_pembayaran');
     }
 }

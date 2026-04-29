@@ -94,7 +94,7 @@
 
                     </div>
 
-                    @if ($pembayaran == "belum")
+                    @if ($status == "belum")
                         <button id="pay-button" class="mt-8 bg-green-600 text-white px-10 py-2 rounded-lg hover:bg-green-700">
                             BAYAR
                         </button>
@@ -107,7 +107,7 @@
 
                 </div>
                 <div class="mt-6 text-center">
-                    @if ($pembayaran != "belum")
+                    @if ($status != "belum")
                         <a href="{{ route('pembayaran.bukti.stream', $siswa->nis) }}" target="_blank"
                            class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
                             Lihat Bukti Pembayaran (PDF)

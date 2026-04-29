@@ -2,122 +2,66 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Admin;
 use App\Models\Kelas;
 use App\Models\Siswa;
 use App\Models\Pembayaran;
 use App\Models\TarifPembayaran;
 use App\Models\Pengguna;
-use App\Models\DataSiswa;
+use App\Services\AdminAuthService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\SiswaAuthService;
+
 
 class AdminController extends Controller
 {
-    public function index()
-    {
-        return Admin::with('pengguna')->get();
-    }
+    public function __construct(
+        private SiswaAuthService $siswaAuthService,
+        private AdminAuthService $adminAuthService,
+    ) {}
 
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'id_pengguna' => 'required|exists:pengguna,id_pengguna'
-        ]);
-
-        return Admin::create($validated);
-    }
-
-    public function show($id)
-    {
-        return Admin::with('pengguna')->findOrFail($id);
-    }
-
-    public function update(Request $request, $id)
-    {
-        $admin = Admin::findOrFail($id);
-        $admin->update($request->all());
-        return $admin;
-    }
-
-    public function destroy($id)
-    {
-        return Admin::destroy($id);
-    }
-
-    public function loginSubmit(Request $request)
-    {
-        $credentials = $request->validate([
-            'nis' => 'required',
-            'password' => 'required'
-        ]);
-
-        if ($request->nis === 'admin' && $request->password === 'admin123') {
-            session(['admin_logged_in' => true]);
-            return redirect()->route('admin.dashboard');
-        }
-
-        return back()->with('error', 'Username atau password salah.');
-    }
-
-    public function logout()
-    {
-        session()->forget('admin_logged_in');
-        return redirect()->route('admin.login');
-    }
 
     public function dashboard()
     {
-        if (!session('admin_logged_in')) {
+        if (!$this->adminAuthService->check()) {
             return redirect()->route('admin.login');
         }
 
-        $totalSiswa = Siswa::count();
-
-        $tarif = TarifPembayaran::value('nominal');
-        $tarifNumber = (int) str_replace(['Rp', '.', ',', ' '], '', $tarif);
-        $totalTarifPerSiswa = $tarifNumber;
-        // $totalTagihan = $totalSiswa * $totalTarifPerSiswa;
+        $totalSiswa      = Siswa::count();
+        $tarif           = TarifPembayaran::value('nominal');
+        $tarifNumber     = (int) str_replace(['Rp', '.', ',', ' '], '', $tarif);
 
         $pembayaranTerbaru = Siswa::leftJoin('pengguna', 'pengguna.id_pengguna', '=', 'siswa.id_pengguna')
             ->leftJoin('pembayaran', 'pembayaran.nis', '=', 'siswa.nis')
-            ->select(
-                'siswa.nis',
-                'pengguna.nama_pengguna as nama',
-                'pembayaran.tanggal_bayar',
-                'pembayaran.status'
-            )
+            ->select('siswa.nis', 'pengguna.nama_pengguna as nama', 'pembayaran.tanggal_bayar', 'pembayaran.status')
             ->orderBy('pengguna.nama_pengguna', 'asc')
             ->get()
             ->map(function ($p) use ($tarif) {
                 $p->jumlah = $tarif;
-                if (!$p->status) {
-                    $p->status = 'Belum Lunas';
-                }
+                $p->status = $p->status ?? 'Belum Lunas';
                 return $p;
             });
 
-        $lunas = Pembayaran::where('status', 'Lunas')->count();
-        $belumLunas = $totalSiswa - $lunas;
-        $totalTagihan = $belumLunas * $totalTarifPerSiswa;
+        $lunas       = Pembayaran::where('status', 'Lunas')->count();
+        $belumLunas  = $totalSiswa - $lunas;
+        $totalTagihan = $belumLunas * $tarifNumber;
 
         return view('admin.dashboard', compact(
-            'pembayaranTerbaru',
-            'totalSiswa',
+            'pembayaranTerbaru', 
+            'totalSiswa', 
             'lunas',
             'belumLunas',
-            'totalTarifPerSiswa',
+            'tarifNumber',
             'totalTagihan'
         ));
     }
 
     public function dataSiswa()
     {
-        $siswa = Siswa::leftJoin('pengguna', 'pengguna.id_pengguna', '=', 'siswa.id_pengguna')
-            ->leftJoin('kelas', 'kelas.id', '=', 'siswa.id_kelas')
-            ->select('siswa.*', 'pengguna.nama_pengguna as nama_pengguna', 'kelas.nama_kelas as nama_kelas')
-            ->orderBy('nama_pengguna', 'asc')
+        $siswa = Siswa::leftJoin('kelas', 'kelas.id', '=', 'siswa.id_kelas')
+            ->select('siswa.*', 'kelas.nama_kelas as nama_kelas')
+            ->orderBy('siswa.nama', 'asc')
             ->get();
 
         $kelas = Kelas::all();
@@ -125,138 +69,101 @@ class AdminController extends Controller
         return view('admin.data-siswa', compact('siswa', 'kelas'));
     }
 
+
     public function storeSiswa(Request $request)
     {
-        Log::info('storeSiswa called', $request->all());
-
         $request->validate([
-            'name' => 'required|string|max:100',
-            'nis' => 'required|string|unique:siswa,nis',
+            'name'          => 'required|string|max:100',
+            'nis'           => 'required|string|unique:siswa,nis',
             'tanggal_lahir' => 'nullable|date',
-            'kelas' => 'required|exists:kelas,id',
-            'email' => 'nullable|email',
-            'telepon' => 'nullable|string',
-            'password' => 'required|string|min:6'
+            'kelas'         => 'required|exists:kelas,id',
+            'email'         => 'nullable|email',
+            'telepon'       => 'nullable|string',
+            'password'      => 'required|string|min:6',
         ]);
 
-        $pengguna = Pengguna::create([
-            'nama_pengguna' => $request->name,
-            'username' => $request->nis,
-            'password' => bcrypt($request->password),
-            'role' => 'siswa'
-        ]);
-
-        Siswa::create([
-            'nis' => $request->nis,
-            'id_pengguna' => $pengguna->id_pengguna,
+        $siswa = $this->siswaAuthService->register([
+            'name'          => $request->name,
+            'nis'           => $request->nis,
             'tanggal_lahir' => $request->tanggal_lahir,
-            'id_kelas' => $request->kelas,
-            'nomor_telepon' => $request->telepon,
-            'email' => $request->email,
-            'password' => bcrypt($request->password)
-        ]);
-
-        $dataSiswa = DataSiswa::create([
-            'nis' => $request->nis,
-            'nama' => $request->name,
-            'tanggal_lahir' => $request->tanggal_lahir,
-            'id_kelas' => $request->kelas,
-            'nomor_telepon' => $request->telepon,
-            'email' => $request->email,
+            'kelas'         => $request->kelas,
+            'email'         => $request->email,
+            'telepon'       => $request->telepon,
+            'password'      => $request->password,
         ]);
 
         if ($request->ajax() || $request->wantsJson()) {
             $kelasModel = Kelas::find($request->kelas);
             return response()->json([
-                'nis' => $request->nis,
-                'nama' => $request->name,
-                'nama_kelas' => $kelasModel ? $kelasModel->nama_kelas : null,
-                'nomor_telepon' => $request->telepon,
-                'email' => $request->email
+                'nis'           => $siswa->nis,
+                'nama'          => $siswa->nama,
+                'nama_kelas'    => $kelasModel?->nama_kelas,
+                'nomor_telepon' => $siswa->nomor_telepon,
+                'email'         => $siswa->email,
             ], 201);
         }
 
         return redirect()->route('admin.dataSiswa')->with('success', 'Siswa berhasil ditambahkan');
     }
 
+
     public function editSiswa($nis)
     {
-        $siswa = Siswa::with(['pengguna', 'kelas'])->where('nis', $nis)->firstOrFail();
+        $siswa = Siswa::with('kelas')->where('nis', $nis)->firstOrFail();
 
-        if (request()->ajax() || request()->wantsJson()) {
-            return response()->json([
-                'nis' => $siswa->nis,
-                'nama' => $siswa->pengguna->nama_pengguna ?? '',
-                'tanggal_lahir' => $siswa->tanggal_lahir,
-                'id_kelas' => $siswa->id_kelas,
-                'email' => $siswa->email,
-                'telepon' => $siswa->nomor_telepon,
-                'id_pengguna' => $siswa->id_pengguna
-            ]);
-        }
-
-        return response()->json($siswa);
+        return response()->json([
+            'nis'           => $siswa->nis,
+            'nama'          => $siswa->nama,
+            'tanggal_lahir' => $siswa->tanggal_lahir,
+            'id_kelas'      => $siswa->id_kelas,
+            'email'         => $siswa->email,
+            'telepon'       => $siswa->nomor_telepon,
+        ]);
     }
 
     public function updateSiswa(Request $request, $nis)
     {
-        Log::info('updateSiswa called', ['nis' => $nis, 'data' => $request->all()]);
-
         $request->validate([
-            'name' => 'required|string|max:100',
+            'name'          => 'required|string|max:100',
             'tanggal_lahir' => 'nullable|date',
-            'kelas' => 'required|string',
-            'email' => 'nullable|email',
-            'telepon' => 'nullable|string',
-            'password' => 'nullable|string|min:6'
+            'kelas'         => 'nullable|exists:kelas,id',
+            'email'         => 'nullable|email',
+            'telepon'       => 'nullable|string',
+            'password'      => 'nullable|string|min:6',
         ]);
 
         $siswa = Siswa::where('nis', $nis)->firstOrFail();
 
-        // Update Pengguna
-        if ($siswa->id_pengguna) {
-            $penggunaData = [
-                'nama_pengguna' => $request->name,
-            ];
-
-            if ($request->filled('password')) {
-                $penggunaData['password'] = bcrypt($request->password);
-            }
-
-            Pengguna::where('id_pengguna', $siswa->id_pengguna)->update($penggunaData);
-        }
-
-        // Update Siswa
-        $siswaData = [
+        $data = [
+            'nama'          => $request->name,
             'tanggal_lahir' => $request->tanggal_lahir,
-            'id_kelas' => $request->kelas,
+            'id_kelas'      => $request->kelas,
             'nomor_telepon' => $request->telepon,
-            'email' => $request->email,
+            'email'         => $request->email,
         ];
 
         if ($request->filled('password')) {
-            $siswaData['password'] = bcrypt($request->password);
+            $data['password'] = bcrypt($request->password);
         }
 
-        $siswa->update($siswaData);
+        $siswa->update($data);
 
-        // Update DataSiswa
-        DataSiswa::where('nis', $nis)->update([
-            'nama' => $request->name,
-            'tanggal_lahir' => $request->tanggal_lahir,
-            'id_kelas' => $request->kelas,
-            'nomor_telepon' => $request->telepon,
-            'email' => $request->email,
-        ]);
+        if ($siswa->id_pengguna) {
+            $penggunaData = ['nama_pengguna' => $request->name];
+            if ($request->filled('password')) {
+                $penggunaData['password'] = bcrypt($request->password);
+            }
+            Pengguna::where('id_pengguna', $siswa->id_pengguna)->update($penggunaData);
+        }
 
         if ($request->ajax() || $request->wantsJson()) {
-            $kelasModel = Kelas::where('id', $request->kelas)->first();
+            $kelasModel = Kelas::find($request->kelas);
             return response()->json([
-                'nis' => $nis,
-                'nama' => $request->name,
-                'nama_kelas' => $kelasModel ? $kelasModel->nama_kelas : null,
-                'nomor_telepon' => $request->telepon,
-                'email' => $request->email
+                'nis'           => $siswa->nis,
+                'nama'          => $siswa->nama,
+                'nama_kelas'    => $kelasModel?->nama_kelas,
+                'nomor_telepon' => $siswa->nomor_telepon,
+                'email'         => $siswa->email,
             ]);
         }
 
@@ -350,7 +257,7 @@ class AdminController extends Controller
 
         $data = [
             'pembayaran' => $pembayaran,
-            'tanggal' => date('d-m-Y H:i:s')
+            'tanggal'    => date('d-m-Y H:i:s')
         ];
 
         $pdf = Pdf::loadView('admin.pdf.pembayaran', $data);

@@ -1,10 +1,11 @@
 <?php
 
-use App\Http\Controllers\KelasController;
+use App\Http\Controllers\Auth\AdminAuthController;
+use App\Http\Controllers\Auth\SiswaAuthController;
+use App\Http\Controllers\Web\KelasController;
+use App\Http\Controllers\Web\SiswaController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PenggunaController;
-use App\Http\Controllers\SiswaController;
 use App\Http\Controllers\PembayaranController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\TarifPembayaranController;
@@ -20,10 +21,10 @@ Route::get('/', function () {
 | PENDAFTARAN SISWA
 |--------------------------------------------------------------------------
 */
-Route::get('/daftar', [SiswaController::class, 'showDaftarForm'])
+Route::get('/daftar', [SiswaAuthController::class, 'showDaftarForm'])
     ->name('siswa.daftar.form');
 
-Route::post('/daftar', [SiswaController::class, 'daftar'])
+Route::post('/daftar', [SiswaAuthController::class, 'daftar'])
     ->name('siswa.daftar');
 
 
@@ -43,8 +44,8 @@ Route::prefix('siswa')->group(function () {
 
     // LOGIN
     Route::get('/login', fn() => view('siswa.login'))->name('siswa.login');
-    Route::post('/login', [SiswaController::class, 'loginSubmit'])->name('siswa.login.submit');
-    Route::post('/logout', [SiswaController::class, 'logout'])->name('siswa.logout');
+    Route::post('/login', [SiswaAuthController::class, 'login'])->name('siswa.login.submit');
+    Route::post('/logout', [SiswaAuthController::class, 'logout'])->name('siswa.logout');
 
     // DASHBOARD
     Route::get('/dashboard', [SiswaController::class, 'dashboard'])->name('siswa.dashboard');
@@ -68,12 +69,12 @@ Route::prefix('siswa')->group(function () {
     Route::get('/pembayaran/bukti-stream/{id}', [PembayaranController::class, 'streamBuktiPdf'])->name('pembayaran.bukti.stream');
 
     // LUPA PASSWORD
-    Route::get('/lupa-password', [SiswaController::class, 'lupaPassword'])->name('siswa.lupa_password');
-    Route::post('/lupa-password', [SiswaController::class, 'lupaPasswordSubmit'])->name('siswa.lupaPassword.submit');
+    Route::get('/lupa-password', [SiswaAuthController::class, 'showLupaPasswordForm'])->name('siswa.lupa_password');
+    Route::post('/lupa-password', [SiswaAuthController::class, 'lupaPasswordSubmit'])->name('siswa.lupaPassword.submit');
 
     // ATUR PASSWORD
-    Route::get('/atur-password', [SiswaController::class, 'aturPassword'])->name('siswa.atur_password');
-    Route::post('/atur-password', [SiswaController::class, 'aturPasswordSubmit'])->name('siswa.atur_password.submit');
+    Route::get('/atur-password', [SiswaAuthController::class, 'showAturPasswordForm'])->name('siswa.atur_password');
+    Route::post('/atur-password', [SiswaAuthController::class, 'aturPasswordSubmit'])->name('siswa.atur_password.submit');
 });
 
 
@@ -84,9 +85,9 @@ Route::prefix('siswa')->group(function () {
 */
 Route::prefix('admin')->group(function () {
 
-    Route::get('/masuk', fn() => view('admin.login'))->name('admin.login');
-    Route::post('/masuk', [AdminController::class, 'loginSubmit'])->name('admin.login.submit');
-    Route::post('/logout', [AdminController::class, 'logout'])->name('admin.logout');
+    Route::get('/masuk', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
+    Route::post('/masuk', [AdminAuthController::class, 'login'])->name('admin.login.submit');
+    Route::post('/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
     Route::get('/data-siswa', [AdminController::class, 'dataSiswa'])->name('admin.dataSiswa');
