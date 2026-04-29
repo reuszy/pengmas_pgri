@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PenggunaController;
 use App\Http\Controllers\PembayaranController;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\TarifPembayaranController;
 use App\Http\Controllers\NotifikasiController;
 use App\Http\Controllers\MidtransController;
 
@@ -115,7 +114,6 @@ Route::prefix('admin')->group(function () {
 
     // Resource khusus admin
     Route::resource('pengguna', PenggunaController::class);
-    Route::resource('tarif', TarifPembayaranController::class);
     Route::resource('pembayaran', PembayaranController::class);
     Route::resource('notifikasi', NotifikasiController::class);
 
