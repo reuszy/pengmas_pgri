@@ -18,7 +18,7 @@ Ikuti langkah-langkah di bawah ini untuk menjalankan project ini di komputer And
 1. **Clone Repository**
    Buka terminal/CMD, arahkan ke folder `www` (Laragon) atau `htdocs` (XAMPP), lalu jalankan perintah:
    ```bash
-   git clone <URL_REPOSITORY_ANDA>
+   git clone https://github.com/reuszy/pengmas_pgri.git
    cd SMK_PGRI_NEWW
    ```
 
