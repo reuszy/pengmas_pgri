@@ -74,45 +74,72 @@
             <!-- KONTEN UTAMA -->
             <div class="flex-1">
 
-                <div class="bg-white rounded-xl p-6 shadow text-center">
-                    <h2 class="text-2xl font-bold mb-6 border-b-4 border-[#0a1b3d] pb-2">
-                        Pembayaran
+                <div class="bg-white rounded-xl p-6 shadow">
+                    <h2 class="text-2xl font-bold mb-6 border-b-4 border-[#0a1b3d] pb-2 text-center">
+                        Pembayaran SPP — TA {{ $tahunAjaran }}
                     </h2>
 
-                    <div class="grid grid-cols-2 gap-4 text-left max-w-lg mx-auto text-sm">
-
-                        <div>Tahun Ajaran</div>
-                        <div>{{ date('Y') }}/{{ date('Y') + 1 }}</div>
+                    <div class="grid grid-cols-2 gap-4 text-left max-w-lg mx-auto text-sm mb-6">
                         <div>NIS</div>
                         <div>{{ $siswa->nis }}</div>
                         <div>Nama Siswa</div>
                         <div>{{ $siswa->nama }}</div>
                         <div>Kelas</div>
                         <div>{{ $siswa->kelas->nama_kelas ?? '-'}}</div>
-                        <div>Jumlah Tagihan</div>
-                        <div>Rp. {{ number_format($tarif->nominal,0,",",".") }},00</div>
-
+                        <div>Tagihan / Bulan</div>
+                        <div>Rp. {{ number_format($tarif->nominal, 0, ',', '.') }}</div>
                     </div>
 
-                    @if ($status == "belum")
-                        <button id="pay-button" class="mt-8 bg-green-600 text-white px-10 py-2 rounded-lg hover:bg-green-700">
-                            BAYAR
-                        </button>
-                    @else
-                        <div class="mt-8 text-green-700 font-semibold">
-                            Sudah Membayar
-                        </div>
-                    @endif
-
+                    <!-- Tabel Tagihan Bulanan -->
+                    <div class="overflow-y-auto" style="max-height: 300px;">
+                        <table class="w-full text-sm text-center">
+                            <thead class="bg-purple-200 sticky top-0">
+                                <tr>
+                                    <th class="p-2">No</th>
+                                    <th class="p-2">Bulan</th>
+                                    <th class="p-2">Tagihan</th>
+                                    <th class="p-2">Status</th>
+                                    <th class="p-2">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($tagihan as $index => $data)
+                                    <tr class="{{ $index % 2 === 0 ? 'bg-white' : 'bg-purple-50' }}">
+                                        <td class="p-2">{{ $index + 1 }}</td>
+                                        <td class="p-2">{{ $data['nama_bulan'] }}</td>
+                                        <td class="p-2">Rp. {{ number_format($data['nominal'], 0, ',', '.') }}</td>
+                                        <td class="p-2">
+                                            @if ($data['status'] === 'lunas')
+                                                <span class="text-green-600 font-semibold">Lunas</span>
+                                            @elseif ($data['status'] === 'pending')
+                                                <span class="text-yellow-600 font-semibold">Pending</span>
+                                            @else
+                                                <span class="text-red-600 font-semibold">Belum Lunas</span>
+                                            @endif
+                                        </td>
+                                        <td class="p-2">
+                                            @if ($data['status'] === 'belum' || $data['status'] === 'gagal')
+                                                <button onclick="bayar({{ $data['bulan'] }}, '{{ $data['tahun_ajaran'] }}')"
+                                                    class="bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 text-xs">
+                                                    Bayar
+                                                </button>
+                                            @else
+                                                <span class="text-gray-400">-</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
 
                 </div>
+
                 <div class="mt-6 text-center">
-                    @if ($status != "belum")
-                        <a href="{{ route('pembayaran.bukti.stream', $siswa->nis) }}" target="_blank"
-                           class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
-                            Lihat Bukti Pembayaran (PDF)
-                        </a>
-                    @endif
+                    <a href="{{ route('siswa.dashboard') }}"
+                       class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                        Kembali ke Dashboard
+                    </a>
                 </div>
             </div>
 
@@ -123,20 +150,37 @@
 </body>
 
 <script>
-document.getElementById('pay-button').onclick = function () {
-
+function bayar(bulan, tahunAjaran) {
     fetch('{{ route("midtrans.create.qris") }}', {
         method: 'POST',
         headers: {
+            'Content-Type': 'application/json',
             'X-CSRF-TOKEN': '{{ csrf_token() }}'
-        }
+        },
+        body: JSON.stringify({
+            bulan: bulan,
+            tahun_ajaran: tahunAjaran
+        })
     })
     .then(res => res.json())
     .then(data => {
-        console.log('Response data:', data); // Debug: lihat response
-        console.log('Snap object:', typeof snap, snap); // Debug: cek snap
-        if (data.snap_token) {
-            snap.pay(data.snap_token);
+        if (data.token) {
+            snap.pay(data.token, {
+                onSuccess: function(result) {
+                    window.location.href = '{{ route("siswa.pembayaran") }}';
+                },
+                onPending: function(result) {
+                    alert('Pembayaran sedang diproses.');
+                    window.location.href = '{{ route("siswa.pembayaran") }}';
+                },
+                onError: function(result) {
+                    alert('Pembayaran gagal.');
+                    window.location.href = '{{ route("siswa.pembayaran") }}';
+                },
+                onClose: function() {
+                    console.log('Popup ditutup');
+                }
+            });
         } else {
             alert('Error: ' + (data.error || 'Gagal membuat snap token'));
         }
@@ -145,7 +189,7 @@ document.getElementById('pay-button').onclick = function () {
         console.error(err);
         alert('Terjadi kesalahan');
     });
-};
+}
 </script>
 
 

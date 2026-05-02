@@ -103,44 +103,46 @@
                 </div>
 
                 <!-- Card Tagihan -->
-                <div class="bg-white rounded-xl p-4 shadow">
+                <div class="bg-white rounded-xl p-4 shadow overflow-y-auto" style="max-height: 340px;">
                     <h2 class="text-xl font-bold mb-4 border-b-4 border-[#0a1b3d] pb-2">
-                        Tagihan Bulanan
+                        Tagihan SPP Bulanan — TA {{ $tahunAjaran }}
                     </h2>
 
                     <div class="bg-purple-100 rounded-lg overflow-hidden">
                         <table class="w-full text-sm text-center">
-                            <thead class="bg-purple-200">
+                            <thead class="bg-purple-200 sticky top-0">
                                 <tr>
                                     <th class="p-3">No.</th>
-                                    <th class="p-3">Jenis Pembayaran</th>
-                                    <th class="p-3">Total Tagihan</th>
+                                    <th class="p-3">Bulan</th>
+                                    <th class="p-3">Tagihan</th>
                                     <th class="p-3">Status</th>
-                                    <th class="p-3">Bayar</th>
+                                    <th class="p-3">Aksi</th>
                                 </tr>
                             </thead>
 
                             <tbody>
-                                @forelse ($tagihan as $data)
-                                    <tr class="bg-white">
-                                        <td class="p-3">{{ $loop->iteration }}.</td>
-                                        <td class="p-3">{{ $data['jenis_pembayaran'] }}</td>
-                                        <td class="p-3">Rp. {{ number_format($data['nominal'], 0, ',', '.') }},00</td>
+                                @forelse ($tagihan as $index => $data)
+                                    <tr class="{{ $index % 2 === 0 ? 'bg-white' : 'bg-purple-50' }}">
+                                        <td class="p-3">{{ $index + 1 }}.</td>
+                                        <td class="p-3">{{ $data['nama_bulan'] }}</td>
+                                        <td class="p-3">Rp. {{ number_format($data['nominal'], 0, ',', '.') }}</td>
                                         <td class="p-3">
-                                            @if ($data['sudah_bayar'] === 'lunas')
+                                            @if ($data['status'] === 'lunas')
                                                 <span class="text-green-600 font-semibold">Lunas</span>
+                                            @elseif ($data['status'] === 'pending')
+                                                <span class="text-yellow-600 font-semibold">Pending</span>
                                             @else
                                                 <span class="text-red-600 font-semibold">Belum Lunas</span>
                                             @endif
                                         </td>
                                         <td class="p-3">
-                                            @if ($data['sudah_bayar'] === 'belum')
-                                                <a href="{{ route('siswa.pembayaran') }}"
-                                                    class="bg-green-600 text-white px-4 py-1 rounded-lg hover:bg-green-700">
+                                            @if ($data['status'] === 'belum' || $data['status'] === 'gagal')
+                                                <a href="{{ route('siswa.pembayaran', ['bulan' => $data['bulan'], 'tahun_ajaran' => $data['tahun_ajaran']]) }}"
+                                                    class="bg-green-600 text-white px-4 py-1 rounded-lg hover:bg-green-700 text-xs">
                                                     Bayar
                                                 </a>
                                             @else
-                                                <span class="text-gray-500">-</span>
+                                                <span class="text-gray-400">-</span>
                                             @endif
                                         </td>
                                     </tr>
@@ -149,18 +151,6 @@
                                         <td colspan="5" class="p-3">Tidak ada tagihan.</td>
                                     </tr>
                                 @endforelse
-
-                                {{-- <tr class="bg-white">
-                                    <td class="p-3">1.</td>
-                                    <td class="p-3">SPP Januari 2025</td>
-                                    <td class="p-3">Rp. 180.000,00</td>
-                                    <td class="p-3">Belum Lunas</td>
-                                    <td class="p-3">
-                                        <a href="{{ route('siswa.pembayaran') }}"
-                                            class="bg-green-600 text-white px-4 py-1 rounded-lg hover:bg-green-700">
-                                            Bayar
-                                        </a>
-                                    </td> --}}
                             </tbody>
                         </table>
                     </div>

@@ -106,7 +106,9 @@
                             <th class="px-3 py-2">Nama</th>
                             <th class="px-3 py-2">NIS</th>
                             <th class="px-3 py-2">Kelas</th>
-                            <th class="px-3 py-2">Tanggal</th>
+                            <th class="px-3 py-2">Bulan</th>
+                            <th class="px-3 py-2">Tahun Ajaran</th>
+                            <th class="px-3 py-2">Tanggal Bayar</th>
                             <th class="px-3 py-2">Jumlah</th>
                             <th class="px-3 py-2">Status</th>
                         </tr>
@@ -118,17 +120,19 @@
                             <td class="px-3 py-2">{{ $p->nama ?? '-' }}</td>
                             <td class="px-3 py-2">{{ $p->nis ?? '-' }}</td>
                             <td class="px-3 py-2">{{ $p->nama_kelas ?? '-' }}</td>
+                            <td class="px-3 py-2">{{ $p->nama_bulan ?? '-' }}</td>
+                            <td class="px-3 py-2">{{ $p->tahun_ajaran ?? '-' }}</td>
                             <td class="px-3 py-2">{{ $p->tanggal_bayar ?? '-' }}</td>
                             <td class="px-3 py-2">{{ $p->jumlah ?? '-' }}</td>
                             <td class="px-3 py-2">
-                                <span class="px-2 py-1 rounded text-xs font-semibold {{ $p->status === 'lunas' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800' }}">
-                                    {{ $p->status ?? 'Belum Lunas' }}
+                                <span class="px-2 py-1 rounded text-xs font-semibold {{ $p->status === 'lunas' ? 'bg-green-200 text-green-800' : ($p->status === 'pending' ? 'bg-yellow-200 text-yellow-800' : 'bg-red-200 text-red-800') }}">
+                                    {{ ucfirst($p->status ?? 'Belum Lunas') }}
                                 </span>
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-gray-500">Tidak ada data pembayaran</td>
+                            <td colspan="9" class="text-center py-4 text-gray-500">Tidak ada data pembayaran</td>
                         </tr>
                         @endforelse
                     </tbody>

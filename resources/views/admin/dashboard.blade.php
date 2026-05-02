@@ -129,7 +129,9 @@
                                 <th>No</th>
                                 <th>Nama</th>
                                 <th>NIS</th>
-                                <th>Tanggal</th>
+                                <th>Bulan</th>
+                                <th>Tahun Ajaran</th>
+                                <th>Tanggal Bayar</th>
                                 <th>Jumlah</th>
                                 <th class="relative">
 
@@ -165,15 +167,17 @@
                                 <td>{{ $key + 1 }}</td>
                                 <td>{{ $p->nama }}</td>
                                 <td>{{ $p->nis }}</td>
-                                <td>{{ $p->tanggal ?? '-' }}</td>
+                                <td>{{ $p->nama_bulan ?? '-' }}</td>
+                                <td>{{ $p->tahun_ajaran ?? '-' }}</td>
+                                <td>{{ $p->tanggal_bayar ?? '-' }}</td>
                                 <td>{{ $p->jumlah ? number_format($p->jumlah, 0, ',', '.') : '-' }}</td>
 
                                     @php
                                         $status = $p->status ?? 'Belum Lunas';
-                                        $warna = $p->status === 'lunas' ? 'text-green-600' : 'text-red-600';
+                                        $warna = $p->status === 'lunas' ? 'text-green-600' : ($p->status === 'pending' ? 'text-yellow-600' : 'text-red-600');
                                     @endphp
 
-                                    <td class="{{ $warna }} font-semibold">{{ $status }}</td>
+                                    <td class="{{ $warna }} font-semibold">{{ ucfirst($status) }}</td>
                             </tr>
                             @empty
                             @endforelse
@@ -234,13 +238,15 @@
                                             '',
                                             '',
                                             '',
+                                            '',
+                                            '',
                                             ''
                                         ]).draw(false);
                                     } else {
                                         data.forEach((item, index) => {
-                                            let warna = item.status === 'Lunas'
+                                            let warna = item.status === 'lunas'
                                                         ? 'color: green;'
-                                                        : 'color: red;';
+                                                        : (item.status === 'pending' ? 'color: orange;' : 'color: red;');
 
                                             let jumlahText = '-';
                                             if (item.jumlah) {
@@ -255,7 +261,9 @@
                                                 index + 1,
                                                 item.nama,
                                                 item.nis,
-                                                item.tanggal ?? '-',
+                                                item.nama_bulan ?? '-',
+                                                item.tahun_ajaran ?? '-',
+                                                item.tanggal_bayar ?? '-',
                                                 jumlahText,
                                                 `<span style="${warna} font-weight: bold;">${item.status ?? 'Belum Lunas'}</span>`
                                             ]).draw(false);

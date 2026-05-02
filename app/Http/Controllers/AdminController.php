@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Kelas;
 use App\Models\Siswa;
 use App\Models\Pembayaran;
+use App\Services\PembayaranService;
 use App\Models\TarifPembayaran;
 use App\Models\Pengguna;
 use App\Services\AdminAuthService;
@@ -32,12 +33,24 @@ class AdminController extends Controller
         $tarif           = TarifPembayaran::value('nominal');
         $tarifNumber     = (int) str_replace(['Rp', '.', ',', ' '], '', $tarif);
 
+        $pembayaranService = app(PembayaranService::class);
+
         $pembayaranTerbaru = Siswa::leftJoin('pengguna', 'pengguna.id_pengguna', '=', 'siswa.id_pengguna')
             ->leftJoin('pembayaran', 'pembayaran.nis', '=', 'siswa.nis')
-            ->select('siswa.nis', 'pengguna.nama_pengguna as nama', 'pembayaran.tanggal_bayar', 'pembayaran.status')
+            ->select(
+                'siswa.nis',
+                'pengguna.nama_pengguna as nama',
+                'pembayaran.bulan',
+                'pembayaran.tahun_ajaran',
+                'pembayaran.tanggal_bayar',
+                'pembayaran.jumlah',
+                'pembayaran.status'
+            )
             ->orderBy('pengguna.nama_pengguna', 'asc')
             ->get()
-            ->map(function ($p) use ($tarif) {
+            ->map(function ($p) use ($tarif, $pembayaranService) {
+                $p->nama_bulan = $p->bulan ? $pembayaranService->namaBulan($p->bulan) : '-';
+                $p->tahun_ajaran = $p->tahun_ajaran ?? '-';
                 $p->jumlah = $tarif;
                 $p->status = $p->status ?? 'Belum Lunas';
                 return $p;
@@ -172,6 +185,8 @@ class AdminController extends Controller
 
     public function dataPembayaran()
     {
+        $pembayaranService = app(PembayaranService::class);
+
         $pembayaran = Siswa::leftJoin('pengguna', 'pengguna.id_pengguna', '=', 'siswa.id_pengguna')
             ->leftJoin('kelas', 'kelas.id', '=', 'siswa.id_kelas')
             ->leftJoin('pembayaran', 'pembayaran.nis', '=', 'siswa.nis')
@@ -179,13 +194,17 @@ class AdminController extends Controller
                 'siswa.nis',
                 'pengguna.nama_pengguna as nama',
                 'kelas.nama_kelas',
+                'pembayaran.bulan',
+                'pembayaran.tahun_ajaran',
                 'pembayaran.tanggal_bayar',
                 'pembayaran.jumlah',
                 'pembayaran.status'
             )
             ->orderBy('pengguna.nama_pengguna', 'asc')
             ->get()
-            ->map(function ($p) {
+            ->map(function ($p) use ($pembayaranService) {
+                $p->nama_bulan = $p->bulan ? $pembayaranService->namaBulan($p->bulan) : '-';
+                $p->tahun_ajaran = $p->tahun_ajaran ?? '-';
                 if (!$p->status) {
                     $p->status = 'Belum Lunas';
                     $p->tanggal_bayar = '-';

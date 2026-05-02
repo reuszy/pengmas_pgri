@@ -26,10 +26,6 @@ class Pengguna extends Authenticatable implements JWTSubject
         return $this->hasOne(Siswa::class, 'id_pengguna');
     }
 
-    public function admin()
-    {
-        return $this->hasOne(Admin::class, 'id_pengguna');
-    }
 
     /**
      * Get the identifier that will be stored in the subject claim of the JWT.

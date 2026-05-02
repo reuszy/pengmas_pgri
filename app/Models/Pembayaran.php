@@ -12,6 +12,8 @@ class Pembayaran extends Model
         'nis',
         'id_kelas',
         'jenis_pembayaran',
+        'bulan',
+        'tahun_ajaran',
         'order_id',
         'jumlah',
         'tanggal_bayar',

@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pembayaran QRIS | SMK PGRI Gumelar</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="{{ config('services.midtrans.clientKey') }}"></script>
 </head>
 
 <body class="bg-gray-100 h-screen overflow-hidden">
@@ -95,18 +95,23 @@
         })
         .then(response => response.json())
         .then(data => {
-            if (data.qr_string) {
-                // Generate QR code
-                QRCode.toCanvas(document.getElementById('qrcode'), data.qr_string, {
-                    width: 256,
-                    height: 256
-                }, function (error) {
-                    if (error) console.error(error);
+            if (data.token) {
+                snap.pay(data.token, {
+                    onSuccess: function(result) {
+                        window.location.href = '{{ route("pembayaran.qris.success") }}';
+                    },
+                    onPending: function(result) {
+                        alert('Pembayaran sedang diproses');
+                    },
+                    onError: function(result) {
+                        alert('Pembayaran gagal');
+                    },
+                    onClose: function() {
+                        console.log('Popup ditutup');
+                    }
                 });
-                document.getElementById('qris-section').classList.remove('hidden');
-                document.getElementById('pay-button').style.display = 'none';
             } else {
-                alert('Error: ' + (data.error || 'Gagal membuat QRIS'));
+                alert('Error: ' + (data.error || 'Gagal membuat pembayaran'));
             }
         })
         .catch(error => {
