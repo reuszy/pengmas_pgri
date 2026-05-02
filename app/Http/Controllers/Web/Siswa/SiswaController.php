@@ -29,6 +29,7 @@ class SiswaController extends Controller
         if (app()->environment('local') && $request->has('test_date')) {
             Carbon::setTestNow($request->test_date);
         }
+        // http://localhost/siswa/dashboard?test_date=2025-09-15
 
         $siswa        = $this->siswaService->findOrFail(session('nis'));
         $tarif        = $this->pembayaranService->getTarifAktif();
@@ -39,24 +40,48 @@ class SiswaController extends Controller
         return view('siswa.dashboard', compact('siswa', 'tagihan', 'tahunAjaran'));
     }
 
-    public function pembayaran()
+    public function pembayaran(Request $request)
     {
+        if (app()->environment('local') && $request->has('test_date')) {
+            Carbon::setTestNow($request->test_date);
+        }
+        // http://localhost/siswa/dashboard?test_date=2025-09-15
+
         $siswa        = $this->siswaService->findOrFail(session('nis'));
-        $tarif        = $this->pembayaranService->getTarifAktif();
         $tahunAjaran  = $this->pembayaranService->getTahunAjaran();
+        $semuaTarif   = TarifPembayaran::orderBy('total_cicilan')->get();
+        $jenisPembayaran = $request->get('jenis_pembayaran', $semuaTarif->first()->jenis_pembayaran ?? 'SPP Bulanan');
+        $tarif        = $this->pembayaranService->getTarifAktif($jenisPembayaran);
         $tagihan      = $this->pembayaranService->generateTagihanBulanan($siswa->nis, $tarif, $tahunAjaran);
 
-        return view('siswa.pembayaran', compact('siswa', 'tarif', 'tagihan', 'tahunAjaran'));
+        return view ('siswa.pembayaran', compact(
+            'siswa',
+            'tarif',
+            'tagihan',
+            'tahunAjaran',
+            'semuaTarif',        
+            'jenisPembayaran',
+        ));
     }
 
-    public function pembayaranQris()
+    public function pembayaranQris(Request $request)
     {
-        $siswa        = $this->siswaService->findOrFail(session('nis'));
-        $tarif        = $this->pembayaranService->getTarifAktif();
-        $tahunAjaran  = $this->pembayaranService->getTahunAjaran();
-        $tagihan      = $this->pembayaranService->generateTagihanBulanan($siswa->nis, $tarif, $tahunAjaran);
+        $siswa           = $this->siswaService->findOrFail(session('nis'));
+        $tahunAjaran     = $this->pembayaranService->getTahunAjaran();
+        $semuaTarif      = TarifPembayaran::orderBy('total_cicilan')->get();
+        $jenisPembayaran = $request->get('jenis_pembayaran', $semuaTarif->first()->jenis_pembayaran ?? 'SPP Bulanan');
+        $tarif           = $this->pembayaranService->getTarifAktif($jenisPembayaran);
+        $tagihan         = $this->pembayaranService->generateTagihanBulanan($siswa->nis, $tarif, $tahunAjaran);
 
-        return view('siswa.pembayaran_qris', compact('siswa', 'tarif', 'tagihan', 'tahunAjaran'));
+        return view('siswa.pembayaran_qris', compact
+        (
+            'siswa',
+            'tarif',
+            'tagihan',
+            'tahunAjaran',
+            'semuaTarif',
+            'jenisPembayaran'
+        ));
     }
 
 }

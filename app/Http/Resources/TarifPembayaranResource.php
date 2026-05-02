@@ -17,7 +17,14 @@ class TarifPembayaranResource extends JsonResource
         return [
             'id_tarif'         => $this->id_tarif,
             'jenis_pembayaran' => $this->jenis_pembayaran,
+            'nominal'          => $this->nominal,
+            'total_cicilan'    => $this->total_cicilan,
+            'keterangan'       => $this->total_cicilan > 1
+                                    ? "Cicilan {$this->total_cicilan}x @ Rp " . number_format($this->nominal, 0, ',', '.')
+                                    : 'Bayar Lunas',
             'nominal_rupiah'   => 'Rp ' . number_format($this->nominal, 0, ',', '.'),
+            'created_at'       => $this->created_at,
+            'updated_at'       => $this->updated_at,
         ];
     }
 }

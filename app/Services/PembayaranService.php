@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Pembayaran;
 use App\Models\Siswa;
 use App\Models\TarifPembayaran;
+use Exception;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 class PembayaranService
@@ -17,7 +19,18 @@ class PembayaranService
         $siswa = Siswa::where('nis', $nis)->firstOrFail();
         $tarif = TarifPembayaran::where('jenis_pembayaran', $jenisPembayaran)->firstOrFail();
 
-        // Cek apakah bulan ini sudah lunas atau pending
+        // Cek apakah bulan ini sudah lunas
+        if ($this->isBulanLunas($nis, $bulan, $tahunAjaran, $jenisPembayaran)) {
+            throw new Exception('SPP bulan ini sudah lunas.');
+        }
+
+        // Tentukan cicilan ke berapa yang akan dibayar
+        $cicilanKe = $this->getCicilanBerikutnya($nis, $bulan, $tahunAjaran, $jenisPembayaran);
+
+        if (!$cicilanKe) {
+            throw new Exception('Semua cicilan bulan ini sudah lunas.');
+        }
+
         $existing = Pembayaran::where('nis', $nis)
             ->where('bulan', $bulan)
             ->where('tahun_ajaran', $tahunAjaran)
@@ -25,17 +38,24 @@ class PembayaranService
             ->first();
 
         if ($existing && $existing->status === 'lunas') {
-            throw new \Exception('SPP bulan ini sudah lunas.');
+            throw new Exception('SPP bulan ini sudah lunas.');
         }
 
-        // Jika ada pending sebelumnya, hapus dulu (user retry)
-        if ($existing && $existing->status === 'pending') {
-            $existing->delete();
-        }
+        // Hapus pending lama dari skema APAPUN untuk bulan ini (agar tidak ada tagihan pending ganda)
+         Pembayaran::where('nis', $nis)
+            ->where('bulan', $bulan)
+            ->where('tahun_ajaran', $tahunAjaran)
+            ->where('status', 'pending')
+            ->delete();
 
         $namaBulan = $this->namaBulan($bulan);
         $orderId   = $this->midtransService->generateOrderId($nis);
 
+        // Label item untuk Midtrans
+        $itemLabel = $tarif->total_cicilan > 1
+            ? "{$jenisPembayaran} {$namaBulan} (Cicilan {$cicilanKe}/{$tarif->total_cicilan})"
+            : "{$jenisPembayaran} {$namaBulan}";
+            
         Pembayaran::create([
             'nis'              => $siswa->nis,
             'id_kelas'         => $siswa->id_kelas,
@@ -43,6 +63,8 @@ class PembayaranService
             'bulan'            => $bulan,
             'tahun_ajaran'     => $tahunAjaran,
             'jumlah'           => $tarif->nominal,
+            'cicilan_ke'       => $cicilanKe,
+            'total_cicilan'    => $tarif->total_cicilan,
             'status'           => 'pending',
             'order_id'         => $orderId,
         ]);
@@ -51,14 +73,16 @@ class PembayaranService
             $orderId,
             $tarif->nominal,
             $siswa->toArray(),
-            $jenisPembayaran . ' - ' . $namaBulan
+            $itemLabel
         );
-
         $snapToken = $this->midtransService->getSnapToken($params);
 
         return [
-            'token'     => $snapToken,
-            'order_id'  => $orderId,
+            'token'         => $snapToken,
+            'order_id'      => $orderId,
+            'cicilan_ke'    => $cicilanKe,
+            'total_cicilan' => $tarif->total_cicilan,
+            'nominal'       => $tarif->nominal,
         ];
     }
 
@@ -105,18 +129,18 @@ class PembayaranService
 
     public function generateTagihanBulanan(string $nis, ?TarifPembayaran $tarif, string $tahunAjaran): array
     {
-        if (!$tarif) {
-            return [];
-        }
+        if (!$tarif) return [];
 
         $urutanBulan   = [7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6];
         $bulanSekarang = now()->month;
-
-        $pembayaran = Pembayaran::where('nis', $nis)
+        $isCicilan     = $tarif->total_cicilan > 1;
+        
+        // Ambil semua pembayaran siswa untuk tahun ajaran sekarang
+        $semuaPembayaran = Pembayaran::where('nis', $nis)
             ->where('tahun_ajaran', $tahunAjaran)
-            ->whereIn('status', ['lunas', 'pending'])
-            ->get()
-            ->keyBy('bulan');
+            ->get();
+            
+        $semuaTarif = TarifPembayaran::all()->keyBy('jenis_pembayaran');
 
         $tagihan = [];
 
@@ -125,14 +149,65 @@ class PembayaranService
                 continue;
             }
 
-            $record    = $pembayaran->get($bulan);
-            $tagihan[] = [
-                'bulan'        => $bulan,
-                'nama_bulan'   => $this->namaBulan($bulan),
-                'nominal'      => $tarif->nominal,
-                'status'       => $record->status ?? 'belum',
-                'tahun_ajaran' => $tahunAjaran,
-            ];
+            $pembayaranBulan = $semuaPembayaran->where('bulan', $bulan);
+            
+            // Cari apakah sudah ada pembayaran lunas
+            $lunasPayments = $pembayaranBulan->where('status', 'lunas');
+            
+            if ($lunasPayments->count() > 0) {
+                // Bulan ini sudah mulai dibayar
+                $firstPayment = $lunasPayments->first();
+                $activeJenis = $firstPayment->jenis_pembayaran;
+                $activeTarif = $semuaTarif->get($activeJenis) ?? $tarif;
+                
+                $targetCicilan = $firstPayment->total_cicilan ?? ($activeTarif->total_cicilan ?? 1);
+                $cicilanLunas = $lunasPayments->count();
+                $sudahLunasPenuh = ($targetCicilan === 1) || ($cicilanLunas >= $targetCicilan);
+                
+                // Cek apakah ada pending
+                $adaPending = $pembayaranBulan->where('jenis_pembayaran', $activeJenis)->where('status', 'pending')->count() > 0;
+                
+                if ($sudahLunasPenuh) {
+                    $status = 'lunas';
+                } elseif ($adaPending) {
+                    $status = 'pending';
+                } else {
+                    $status = 'cicilan';
+                }
+                
+                $tagihan[] = [
+                    'bulan'          => $bulan,
+                    'nama_bulan'     => $this->namaBulan($bulan),
+                    'nominal'        => $activeTarif->nominal,
+                    'total_nominal'  => $activeTarif->nominal * $activeTarif->total_cicilan,
+                    'status'         => $status,
+                    'tahun_ajaran'   => $tahunAjaran,
+                    'is_cicilan'     => $targetCicilan > 1,
+                    'total_cicilan'  => $targetCicilan,
+                    'cicilan_lunas'  => $sudahLunasPenuh ? $targetCicilan : $cicilanLunas,
+                    'sisa_cicilan'   => $sudahLunasPenuh ? 0 : ($targetCicilan - $cicilanLunas),
+                    'jenis_pembayaran' => $activeJenis,
+                ];
+            } else {
+                // Belum ada pembayaran lunas sama sekali.
+                // Tampilkan sesuai tab/skema yang sedang dibuka ($tarif).
+                $pembayaranSkemaIni = $pembayaranBulan->where('jenis_pembayaran', $tarif->jenis_pembayaran);
+                $adaPending = $pembayaranSkemaIni->where('status', 'pending')->count() > 0;
+                
+                $tagihan[] = [
+                    'bulan'          => $bulan,
+                    'nama_bulan'     => $this->namaBulan($bulan),
+                    'nominal'        => $tarif->nominal,
+                    'total_nominal'  => $tarif->nominal * $tarif->total_cicilan,
+                    'status'         => $adaPending ? 'pending' : 'belum',
+                    'tahun_ajaran'   => $tahunAjaran,
+                    'is_cicilan'     => $isCicilan,
+                    'total_cicilan'  => $tarif->total_cicilan,
+                    'cicilan_lunas'  => 0,
+                    'sisa_cicilan'   => $tarif->total_cicilan,
+                    'jenis_pembayaran' => $tarif->jenis_pembayaran,
+                ];
+            }
         }
 
         return $tagihan;
@@ -200,6 +275,60 @@ class PembayaranService
         // Status lain (pending, dll) — tidak perlu update
         Log::info('Midtrans status tidak diproses', ['status' => $transactionStatus]);
         return true;
+    }
+
+
+    // Ambil semua record cicilan pada bulan tertentu
+    public function getCicilanBulanan(string $nis, int $bulan, string $tahunAjaran): Collection
+    {
+        return Pembayaran::where('nis', $nis)
+        ->where('bulan', $bulan)
+        ->where('tahun_ajaran', $tahunAjaran)
+        ->orderBy('cicilan_ke')
+        ->get();
+    }
+
+
+    // Cek cicilan berikutnya yang harus dibayar
+    public function getCicilanBerikutnya(string $nis, int $bulan, string $tahunAjaran, string $jenisPembayaran): ?int
+    {
+        $tarif = TarifPembayaran::where('jenis_pembayaran', $jenisPembayaran)->firstOrFail();
+
+        $cicilanLunas = Pembayaran::where('nis', $nis)
+            ->where('bulan', $bulan)
+            ->where('tahun_ajaran', $tahunAjaran)
+            ->where('jenis_pembayaran', $jenisPembayaran)
+            ->where('status', 'lunas')
+            ->count();
+
+        if ($cicilanLunas >= $tarif->total_cicilan) {
+            return null; // semua cicilan lunas
+        }
+
+        return $cicilanLunas + 1;
+    }
+
+
+    // Cek apakah bulan ini sudah lunas
+    public function isBulanLunas(string $nis, int $bulan, string $tahunAjaran, string $jenisPembayaran): bool
+    {
+        $pembayaran = Pembayaran::where('nis', $nis)
+            ->where('bulan', $bulan)
+            ->where('tahun_ajaran', $tahunAjaran)
+            ->where('status', 'lunas')
+            ->get();
+
+        foreach ($pembayaran->groupBy('jenis_pembayaran') as $jenis => $payments) {
+            $t = TarifPembayaran::where('jenis_pembayaran', $jenis)->first();
+            $targetCicilan = $t ? $t->total_cicilan : 1;
+            
+            $first = $payments->first();
+            if ($first->total_cicilan === null || $first->total_cicilan === 1 || $payments->count() >= $targetCicilan) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 

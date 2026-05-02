@@ -14,11 +14,18 @@ class TarifPembayaran extends Model
 
     protected $fillable = [
         'jenis_pembayaran',
-        'nominal'
+        'nominal',
+        'total_cicilan'
     ];
 
     public function pembayaran()
     {
         return $this->hasMany(Pembayaran::class, 'jenis_pembayaran', 'jenis_pembayaran');
+    }
+
+
+    public function getIsLunasAttribute(): bool
+    {
+        return $this->total_cicilan === 1;
     }
 }

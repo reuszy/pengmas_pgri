@@ -23,6 +23,7 @@ class TarifPembayaranService
         return TarifPembayaran::create([
             'jenis_pembayaran' => $data['jenis_pembayaran'],
             'nominal'          => $data['nominal'],
+            'total_cicilan'    => $data['total_cicilan'] ?? 1,
         ]);
     }
 
@@ -33,6 +34,7 @@ class TarifPembayaranService
         $tarif->update([
             'jenis_pembayaran' => $data['jenis_pembayaran'] ?? $tarif->jenis_pembayaran,
             'nominal'          => $data['nominal'] ?? $tarif->nominal,
+            'total_cicilan'    => $data['total_cicilan'] ?? $tarif->total_cicilan,
         ]);
         return $tarif->fresh();
     }

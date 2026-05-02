@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Pembayaran;
 use App\Services\PembayaranService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Exception;
 use Illuminate\Http\Request;
 
 class PembayaranController extends Controller
@@ -15,14 +16,23 @@ class PembayaranController extends Controller
 
     public function getSnapToken(Request $request)
     {
-        try {
-            $nis          = session('nis');
-            $bulan        = (int) $request->input('bulan', now()->month);
-            $tahunAjaran  = $request->input('tahun_ajaran', $this->getTahunAjaran());
+        $request->validate([
+            'jenis_pembayaran' => 'required|exists:tarif_pembayaran,jenis_pembayaran',
+            'bulan'            => 'required|integer|min:1|max:12',
+            'tahun_ajaran'     => 'required|string',
+        ]);
 
-            $result = $this->pembayaranService->buatSnapToken($nis, $bulan, $tahunAjaran);
+        try {
+            $result = $this->pembayaranService->buatSnapToken(
+                session('nis'),
+                $request->bulan,
+                $request->tahun_ajaran,
+                $request->jenis_pembayaran,
+            );
+
             return response()->json($result);
-        } catch (\Exception $e) {
+
+        } catch (Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

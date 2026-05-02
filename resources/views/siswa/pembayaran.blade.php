@@ -90,47 +90,96 @@
                         <div>Rp. {{ number_format($tarif->nominal, 0, ',', '.') }}</div>
                     </div>
 
+                    <!-- Selector Skema Bayar -->
+                    <div class="mb-4">
+                        <p class="text-xs text-gray-500 mb-2">Skema pembayaran</p>
+                        <div class="flex gap-2 flex-wrap">
+                            @foreach ($semuaTarif as $t)
+                            <a href="{{ request()->fullUrlWithQuery(['jenis_pembayaran' => $t->jenis_pembayaran]) }}"
+                            class="px-3 py-1.5 rounded-full text-xs border transition
+                                    {{ $jenisPembayaran === $t->jenis_pembayaran
+                                            ? 'bg-purple-700 text-white border-purple-700'
+                                            : 'bg-white text-gray-500 border-gray-300 hover:border-purple-400 hover:text-purple-600' }}">
+                                {{ $t->total_cicilan > 1 ? 'Cicilan ' . $t->total_cicilan . '×' : 'Lunas' }}
+                                <span class="opacity-70">· Rp {{ number_format($t->nominal, 0, ',', '.') }}</span>
+                            </a>
+                            @endforeach
+                        </div>
+                    </div>
+
                     <!-- Tabel Tagihan Bulanan -->
                     <div class="overflow-y-auto" style="max-height: 300px;">
                         <table class="w-full text-sm text-center">
-                            <thead class="bg-purple-200 sticky top-0">
-                                <tr>
-                                    <th class="p-2">No</th>
-                                    <th class="p-2">Bulan</th>
-                                    <th class="p-2">Tagihan</th>
-                                    <th class="p-2">Status</th>
-                                    <th class="p-2">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($tagihan as $index => $data)
-                                    <tr class="{{ $index % 2 === 0 ? 'bg-white' : 'bg-purple-50' }}">
-                                        <td class="p-2">{{ $index + 1 }}</td>
-                                        <td class="p-2">{{ $data['nama_bulan'] }}</td>
-                                        <td class="p-2">Rp. {{ number_format($data['nominal'], 0, ',', '.') }}</td>
-                                        <td class="p-2">
-                                            @if ($data['status'] === 'lunas')
-                                                <span class="text-green-600 font-semibold">Lunas</span>
+                        <thead class="bg-purple-200 sticky top-0">
+                            <tr>
+                                <th class="p-2">No</th>
+                                <th class="p-2">Bulan</th>
+                                <th class="p-2">Tagihan</th>
+                                <th class="p-2">Progress Cicilan</th>
+                                <th class="p-2">Status</th>
+                                <th class="p-2">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($tagihan as $index => $data)
+                            <tr class="{{ $index % 2 === 0 ? 'bg-white' : 'bg-purple-50' }}">
+                                <td class="p-2">{{ $index + 1 }}</td>
+                                <td class="p-2">{{ $data['nama_bulan'] }}</td>
+                                <td class="p-2">
+                                    Rp {{ number_format($data['nominal'], 0, ',', '.') }}
+                                    @if ($data['is_cicilan'])
+                                        <span class="text-xs text-gray-500 block">
+                                            x{{ $data['total_cicilan'] }} = Rp {{ number_format($data['total_nominal'], 0, ',', '.') }}
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="p-2">
+                                    @if ($data['is_cicilan'])
+                                        <span class="text-xs">
+                                            {{ $data['cicilan_lunas'] }}/{{ $data['total_cicilan'] }} lunas
+                                        </span>
+                                        <!-- Progress bar -->
+                                        <div class="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                                            <div class="bg-green-500 h-1.5 rounded-full"
+                                                style="width: {{ ($data['cicilan_lunas'] / $data['total_cicilan']) * 100 }}%">
+                                            </div>
+                                        </div>
+                                    @else
+                                        <span class="text-xs text-gray-400">-</span>
+                                    @endif
+                                </td>
+                                <td class="p-2">
+                                    @if ($data['status'] === 'lunas')
+                                        <span class="text-green-600 font-semibold">Lunas</span>
+                                    @elseif ($data['status'] === 'cicilan')
+                                        <span class="text-blue-600 font-semibold">Cicilan</span>
+                                    @elseif ($data['status'] === 'pending')
+                                        <span class="text-yellow-600 font-semibold">Pending</span>
+                                    @else
+                                        <span class="text-red-600 font-semibold">Belum Lunas</span>
+                                    @endif
+                                </td>
+                                <td class="p-2">
+                                    @if ($data['status'] !== 'lunas')
+                                        <button onclick="bayar({{ $data['bulan'] }}, '{{ $data['tahun_ajaran'] }}', '{{ $data['jenis_pembayaran'] }}')"
+                                            class="{{ $data['status'] === 'pending' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700' }}
+                                                text-white px-3 py-1 rounded-lg text-xs">
+                                            @if ($data['status'] === 'cicilan')
+                                                Bayar Cicilan {{ $data['cicilan_lunas'] + 1 }}
                                             @elseif ($data['status'] === 'pending')
-                                                <span class="text-yellow-600 font-semibold">Pending</span>
+                                                Bayar Ulang
                                             @else
-                                                <span class="text-red-600 font-semibold">Belum Lunas</span>
+                                                Bayar
                                             @endif
-                                        </td>
-                                        <td class="p-2">
-                                            @if ($data['status'] === 'belum' || $data['status'] === 'gagal' || $data['status'] === 'pending')
-                                                <button onclick="bayar({{ $data['bulan'] }}, '{{ $data['tahun_ajaran'] }}')"
-                                                    class="{{ $data['status'] === 'pending' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700' }} text-white px-3 py-1 rounded-lg text-xs">
-                                                    {{ $data['status'] === 'pending' ? 'Bayar Ulang' : 'Bayar' }}
-                                                </button>
-                                            @else
-                                                <span class="text-gray-400">-</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                                        </button>
+                                    @else
+                                        <span class="text-gray-400">-</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                     </div>
 
                 </div>
@@ -150,7 +199,7 @@
 </body>
 
 <script>
-function bayar(bulan, tahunAjaran) {
+function bayar(bulan, tahunAjaran, jenisPembayaran) {
     fetch('{{ route("midtrans.create.qris") }}', {
         method: 'POST',
         headers: {
@@ -158,8 +207,9 @@ function bayar(bulan, tahunAjaran) {
             'X-CSRF-TOKEN': '{{ csrf_token() }}'
         },
         body: JSON.stringify({
-            bulan: bulan,
-            tahun_ajaran: tahunAjaran
+            bulan:             bulan,
+            tahun_ajaran:      tahunAjaran,
+            jenis_pembayaran:  jenisPembayaran
         })
     })
     .then(res => res.json())
