@@ -73,8 +73,28 @@
             <!-- MAIN CONTENT -->
             <div class="flex-1">
 
-                <!-- Judul -->
-                <h2 class="text-3xl font-bold mb-6 text-[#0a1b3d]">Dashboard</h2>
+                <!-- Judul & Filter Bulan -->
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-[#0a1b3d]">Dashboard</h2>
+                    
+                    <form action="{{ route('admin.dashboard') }}" method="GET" class="flex items-center gap-2">
+                        <label for="bulan" class="text-sm font-semibold text-gray-700">Pilih Bulan:</label>
+                        <select name="bulan" id="bulan" onchange="this.form.submit()" class="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            @php
+                                $daftarBulan = [
+                                    1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+                                    5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+                                    9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+                                ];
+                            @endphp
+                            @foreach($daftarBulan as $num => $name)
+                                <option value="{{ $num }}" {{ $bulanSekarang == $num ? 'selected' : '' }}>
+                                    {{ $name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </form>
+                </div>
 
                 <!-- STATISTIK -->
                 <div class="grid grid-cols-4 gap-4">
@@ -85,17 +105,17 @@
                     </div>
 
                     <div class="bg-white p-5 rounded-xl shadow">
-                        <p class="text-sm text-gray-500">Total Tagihan</p>
+                        <p class="text-sm text-gray-500">Total Tagihan ({{ $namaBulanSekarang }})</p>
                         <p class="text-2xl font-bold mt-2">Rp.{{ number_format($totalTagihan, 0, ',', '.') }}</p>
                     </div>
 
                     <div class="bg-white p-5 rounded-xl shadow">
-                        <p class="text-sm text-gray-500">Lunas</p>
+                        <p class="text-sm text-gray-500">Lunas ({{ $namaBulanSekarang }})</p>
                         <p class="text-2xl font-bold mt-2">{{ $lunas }}</p>
                     </div>
 
                     <div class="bg-white p-5 rounded-xl shadow">
-                        <p class="text-sm text-gray-500">Belum Lunas</p>
+                        <p class="text-sm text-gray-500">Belum Lunas ({{ $namaBulanSekarang }})</p>
                         <p class="text-2xl font-bold mt-2">{{ $belumLunas }}</p>
                     </div>
 
@@ -104,7 +124,7 @@
                 <!-- TABEL PEMBAYARAN -->
                 <div class="bg-white rounded-xl shadow p-6 mt-8">
 
-                    <h3 class="text-lg font-bold mb-4">Pembayaran Terbaru</h3>
+                    <h3 class="text-lg font-bold mb-4">Status Pembayaran Bulan Ini ({{ $namaBulanSekarang }})</h3>
 
                     <!-- SHOW ENTRIES -->
                     <div class="flex items-center justify-end mb-4">
@@ -220,14 +240,18 @@
                             $('#statusDropdown').addClass('hidden');
 
                             if (status === '') {
-                                location.reload();
+                                location.href = "{{ route('admin.dashboard') }}?bulan={{ $bulanSekarang }}";
                                 return;
                             }
 
                             $.ajax({
                                 url: "{{ route('admin.pembayaran.filter') }}",
                                 method: "GET",
-                                data: { status: status },
+                                data: { 
+                                    status: status,
+                                    bulan: "{{ $bulanSekarang }}",
+                                    tahun_ajaran: "{{ $pembayaranTerbaru->first()->tahun_ajaran ?? '' }}"
+                                },
                                 success: function (data) {
                                     table.clear().draw();
 

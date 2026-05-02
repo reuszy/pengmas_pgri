@@ -63,6 +63,24 @@ class PembayaranService
     }
 
 
+    public function getTahunAjaran(?int $bulan = null, ?int $tahun = null): string
+    {
+        $bulan = $bulan ?? now()->month;
+        $tahun = $tahun ?? now()->year;
+
+        if ($bulan >= 7) {
+            return $tahun . '/' . ($tahun + 1);
+        }
+        return ($tahun - 1) . '/' . $tahun;
+    }
+
+
+    public function getTarifAktif(string $jenisPembayaran = 'SPP Bulanan'): ?TarifPembayaran
+    {
+        return TarifPembayaran::where('jenis_pembayaran', $jenisPembayaran)->first();
+    }
+
+    
     // Helper nama bulan
     public function namaBulan(int $bulan): string
     {
@@ -73,6 +91,51 @@ class PembayaranService
             10 => 'Oktober', 11 => 'November', 12 => 'Desember',
         ];
         return $nama[$bulan] ?? '';
+    }
+
+
+    public function sudahBerjalan(int $bulanTagihan, int $bulanSekarang): bool
+    {
+        $indexTagihan  = ($bulanTagihan >= 7) ? $bulanTagihan - 7 : $bulanTagihan + 5;
+        $indexSekarang = ($bulanSekarang >= 7) ? $bulanSekarang -7 : $bulanSekarang + 5;
+
+        return $indexTagihan <= $indexSekarang;
+    }
+
+
+    public function generateTagihanBulanan(string $nis, ?TarifPembayaran $tarif, string $tahunAjaran): array
+    {
+        if (!$tarif) {
+            return [];
+        }
+
+        $urutanBulan   = [7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6];
+        $bulanSekarang = now()->month;
+
+        $pembayaran = Pembayaran::where('nis', $nis)
+            ->where('tahun_ajaran', $tahunAjaran)
+            ->whereIn('status', ['lunas', 'pending'])
+            ->get()
+            ->keyBy('bulan');
+
+        $tagihan = [];
+
+        foreach ($urutanBulan as $bulan) {
+            if (!$this->sudahBerjalan($bulan, $bulanSekarang)) {
+                continue;
+            }
+
+            $record    = $pembayaran->get($bulan);
+            $tagihan[] = [
+                'bulan'        => $bulan,
+                'nama_bulan'   => $this->namaBulan($bulan),
+                'nominal'      => $tarif->nominal,
+                'status'       => $record->status ?? 'belum',
+                'tahun_ajaran' => $tahunAjaran,
+            ];
+        }
+
+        return $tagihan;
     }
 
 
@@ -141,9 +204,17 @@ class PembayaranService
 
 
     // Filter untuk halaman Admin
-    public function filter(?string $status)
+    public function filter(?string $status, ?int $bulan = null, ?string $tahunAjaran = null)
     {
-        $query = Siswa::leftJoin('pembayaran', 'pembayaran.nis', '=', 'siswa.nis')
+        $query = Siswa::leftJoin('pembayaran', function ($join) use ($bulan, $tahunAjaran) {
+                $join->on('pembayaran.nis', '=', 'siswa.nis');
+                if ($bulan) {
+                    $join->where('pembayaran.bulan', '=', $bulan);
+                }
+                if ($tahunAjaran) {
+                    $join->where('pembayaran.tahun_ajaran', '=', $tahunAjaran);
+                }
+            })
             ->leftJoin('kelas', 'kelas.id', '=', 'siswa.id_kelas')
             ->select(
                 'siswa.nis',

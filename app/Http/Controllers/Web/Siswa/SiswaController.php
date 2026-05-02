@@ -7,6 +7,8 @@ use App\Models\Pembayaran;
 use App\Models\TarifPembayaran;
 use App\Services\PembayaranService;
 use App\Services\SiswaService;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class SiswaController extends Controller
 {
@@ -15,19 +17,24 @@ class SiswaController extends Controller
         private PembayaranService $pembayaranService,
     ) {}
 
+
     public function beranda()
     {
         return view('siswa.beranda');
     }
 
-    public function dashboard()
+    public function dashboard(Request $request)
     {
-        $siswa        = $this->siswaService->findOrFail(session('nis'));
-        $tarif        = TarifPembayaran::where('jenis_pembayaran', 'SPP Bulanan')->first();
-        $tahunAjaran  = $this->getTahunAjaran();
+        // Testing Only!
+        if (app()->environment('local') && $request->has('test_date')) {
+            Carbon::setTestNow($request->test_date);
+        }
 
-        // Generate tagihan 12 bulan (Juli-Juni)
-        $tagihan = $this->generateTagihanBulanan($siswa->nis, $tarif, $tahunAjaran);
+        $siswa        = $this->siswaService->findOrFail(session('nis'));
+        $tarif        = $this->pembayaranService->getTarifAktif();
+        $tahunAjaran  = $this->pembayaranService->getTahunAjaran();
+
+        $tagihan = $this->pembayaranService->generateTagihanBulanan($siswa->nis, $tarif, $tahunAjaran);
 
         return view('siswa.dashboard', compact('siswa', 'tagihan', 'tahunAjaran'));
     }
@@ -35,9 +42,9 @@ class SiswaController extends Controller
     public function pembayaran()
     {
         $siswa        = $this->siswaService->findOrFail(session('nis'));
-        $tarif        = TarifPembayaran::where('jenis_pembayaran', 'SPP Bulanan')->first();
-        $tahunAjaran  = $this->getTahunAjaran();
-        $tagihan      = $this->generateTagihanBulanan($siswa->nis, $tarif, $tahunAjaran);
+        $tarif        = $this->pembayaranService->getTarifAktif();
+        $tahunAjaran  = $this->pembayaranService->getTahunAjaran();
+        $tagihan      = $this->pembayaranService->generateTagihanBulanan($siswa->nis, $tarif, $tahunAjaran);
 
         return view('siswa.pembayaran', compact('siswa', 'tarif', 'tagihan', 'tahunAjaran'));
     }
@@ -45,63 +52,11 @@ class SiswaController extends Controller
     public function pembayaranQris()
     {
         $siswa        = $this->siswaService->findOrFail(session('nis'));
-        $tarif        = TarifPembayaran::where('jenis_pembayaran', 'SPP Bulanan')->first();
-        $tahunAjaran  = $this->getTahunAjaran();
-        $tagihan      = $this->generateTagihanBulanan($siswa->nis, $tarif, $tahunAjaran);
+        $tarif        = $this->pembayaranService->getTarifAktif();
+        $tahunAjaran  = $this->pembayaranService->getTahunAjaran();
+        $tagihan      = $this->pembayaranService->generateTagihanBulanan($siswa->nis, $tarif, $tahunAjaran);
 
         return view('siswa.pembayaran_qris', compact('siswa', 'tarif', 'tagihan', 'tahunAjaran'));
     }
 
-
-    /**
-     * Generate tagihan 12 bulan untuk tahun ajaran (Juli–Juni)
-     */
-    private function generateTagihanBulanan(string $nis, ?TarifPembayaran $tarif, string $tahunAjaran): array
-    {
-        if (!$tarif) {
-            return [];
-        }
-
-        // Urutan bulan dalam tahun ajaran: Juli(7)–Desember(12), Januari(1)–Juni(6)
-        $urutanBulan = [7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6];
-
-        // Ambil semua pembayaran siswa untuk tahun ajaran ini
-        $pembayaran = Pembayaran::where('nis', $nis)
-            ->where('tahun_ajaran', $tahunAjaran)
-            ->whereIn('status', ['lunas', 'pending'])
-            ->get()
-            ->keyBy('bulan');
-
-        $tagihan = [];
-        foreach ($urutanBulan as $bulan) {
-            $record = $pembayaran->get($bulan);
-            $status = $record->status ?? 'belum';
-
-            $tagihan[] = [
-                'bulan'            => $bulan,
-                'nama_bulan'       => $this->pembayaranService->namaBulan($bulan),
-                'nominal'          => $tarif->nominal,
-                'status'           => $status,
-                'tahun_ajaran'     => $tahunAjaran,
-            ];
-        }
-
-        return $tagihan;
-    }
-
-
-    /**
-     * Tentukan tahun ajaran berdasarkan bulan sekarang
-     * Juli-Desember = tahun/tahun+1, Januari-Juni = tahun-1/tahun
-     */
-    private function getTahunAjaran(): string
-    {
-        $bulan = now()->month;
-        $tahun = now()->year;
-
-        if ($bulan >= 7) {
-            return $tahun . '/' . ($tahun + 1);
-        }
-        return ($tahun - 1) . '/' . $tahun;
-    }
 }

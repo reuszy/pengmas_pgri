@@ -13,7 +13,11 @@ class PembayaranController extends Controller
 
     public function filter(Request $request)
     {
-        $hasil = $this->pembayaranService->filter($request->status);
+        $status = $request->status;
+        $bulan = $request->bulan ? (int)$request->bulan : null;
+        $tahunAjaran = $request->tahun_ajaran;
+
+        $hasil = $this->pembayaranService->filter($status, $bulan, $tahunAjaran);
         return response()->json($hasil);
     }
 }

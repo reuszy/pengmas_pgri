@@ -125,7 +125,7 @@
                             <td class="px-3 py-2">{{ $p->tanggal_bayar ?? '-' }}</td>
                             <td class="px-3 py-2">{{ $p->jumlah ?? '-' }}</td>
                             <td class="px-3 py-2">
-                                <span class="px-2 py-1 rounded text-xs font-semibold {{ $p->status === 'lunas' ? 'bg-green-200 text-green-800' : ($p->status === 'pending' ? 'bg-yellow-200 text-yellow-800' : 'bg-red-200 text-red-800') }}">
+                                <span class="px-2 py-1 rounded text-xs font-semibold {{ strtolower($p->status ?? '') === 'lunas' ? 'bg-green-200 text-green-800' : (strtolower($p->status ?? '') === 'pending' ? 'bg-yellow-200 text-yellow-800' : 'bg-red-200 text-red-800') }}">
                                     {{ ucfirst($p->status ?? 'Belum Lunas') }}
                                 </span>
                             </td>

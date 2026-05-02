@@ -2,13 +2,13 @@
 
 use App\Http\Controllers\Auth\AdminAuthController;
 use App\Http\Controllers\Auth\SiswaAuthController;
+use App\Http\Controllers\Web\Admin\AdminController;
 use App\Http\Controllers\Web\Admin\KelasController;
 use App\Http\Controllers\Web\Siswa\PembayaranController as SiswaPembayaranController;
 use App\Http\Controllers\Web\Admin\PembayaranController as AdminPembayaranController;
 use App\Http\Controllers\Web\Siswa\SiswaController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PenggunaController;
-use App\Http\Controllers\AdminController;
 use App\Http\Controllers\NotifikasiController;
 
 Route::get('/', function () {

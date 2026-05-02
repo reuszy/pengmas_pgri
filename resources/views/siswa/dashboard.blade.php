@@ -136,10 +136,10 @@
                                             @endif
                                         </td>
                                         <td class="p-3">
-                                            @if ($data['status'] === 'belum' || $data['status'] === 'gagal')
+                                            @if ($data['status'] === 'belum' || $data['status'] === 'gagal' || $data['status'] === 'pending')
                                                 <a href="{{ route('siswa.pembayaran', ['bulan' => $data['bulan'], 'tahun_ajaran' => $data['tahun_ajaran']]) }}"
-                                                    class="bg-green-600 text-white px-4 py-1 rounded-lg hover:bg-green-700 text-xs">
-                                                    Bayar
+                                                    class="{{ $data['status'] === 'pending' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700' }} text-white px-4 py-1 rounded-lg text-xs">
+                                                    {{ $data['status'] === 'pending' ? 'Bayar Ulang' : 'Bayar' }}
                                                 </a>
                                             @else
                                                 <span class="text-gray-400">-</span>
