@@ -165,15 +165,6 @@ class AdminController extends Controller
 
     public function updateSiswa(Request $request, $nis)
     {
-        $request->validate([
-            'name'          => 'required|string|max:100',
-            'tanggal_lahir' => 'nullable|date',
-            'kelas'         => 'nullable|exists:kelas,id',
-            'email'         => 'nullable|email',
-            'telepon'       => 'nullable|string',
-            'password'      => 'nullable|string|min:6',
-        ]);
-
         $siswa = Siswa::where('nis', $nis)->firstOrFail();
 
         $data = [
@@ -184,17 +175,15 @@ class AdminController extends Controller
             'email'         => $request->email,
         ];
 
-        if ($request->filled('password')) {
-            $data['password'] = bcrypt($request->password);
-        }
-
         $siswa->update($data);
 
         if ($siswa->id_pengguna) {
             $penggunaData = ['nama_pengguna' => $request->name];
+
             if ($request->filled('password')) {
                 $penggunaData['password'] = bcrypt($request->password);
             }
+
             Pengguna::where('id_pengguna', $siswa->id_pengguna)->update($penggunaData);
         }
 

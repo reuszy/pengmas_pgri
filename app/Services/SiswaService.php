@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Pengguna;
 use App\Models\Siswa;
 use App\Models\Kelas;
+use Exception;
 use Illuminate\Support\Facades\DB;
 
 class SiswaService
@@ -81,5 +82,44 @@ class SiswaService
                 Pengguna::where('id_pengguna', $idPengguna)->delete();
             }
         });
+    }
+
+
+    // Profil siswa untuk 'Pengaturan Akun'
+    public function getProfil(string $nis): Siswa
+    {
+        return Siswa::with('kelas')->where('nis', $nis)->firstOrFail();
+    } 
+
+
+    public function updateProfil(string $nis, array $data): Siswa
+    {
+        $siswa = $this->findOrFail($nis);
+
+        $siswa->update([
+            'email'         => $data['email'] ?? $siswa->email,
+            'tanggal_lahir' => $data['tanggal_lahir'] ?? $siswa->tanggal_lahir,
+            'nomor_telepon' => $data['nomor_telepon'] ?? $siswa->nomor_telepon,
+        ]);
+
+        return $siswa->fresh('kelas');
+    }
+
+
+    public function gantiPassword(string $nis, string $passwordLama, string $passwordBaru): void
+    {
+        $siswa = Siswa::with('pengguna')->where('nis', $nis)->firstOrFail();
+
+        if (!$siswa->pengguna) {
+            throw new Exception('Data akun tidak ditemukan.');
+        }
+
+        if (!\Illuminate\Support\Facades\Hash::check($passwordLama, $siswa->pengguna->password)) {
+            throw new Exception('Password lama tidak sesuai.');
+        }
+
+        $siswa->pengguna->update([
+            'password' => bcrypt($passwordBaru),
+        ]);
     }
 }

@@ -8,6 +8,7 @@ use App\Models\TarifPembayaran;
 use App\Services\PembayaranService;
 use App\Services\SiswaService;
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\Request;
 
 class SiswaController extends Controller
@@ -59,4 +60,56 @@ class SiswaController extends Controller
         return view('siswa.pembayaran_qris', compact('siswa', 'tarif', 'tagihan', 'tahunAjaran'));
     }
 
+
+    public function pengaturan()
+    {
+        $siswa = $this->siswaService->getProfil(session('nis'));
+
+        return view('siswa.pengaturan', compact('siswa'));
+    }
+
+
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'email'         => 'required|email|unique:siswa,email,' . session('nis') . ',nis',
+            'nomor_telepon' => 'required|string|max:20',
+        ]);
+
+        try {
+            $siswa = $this->siswaService->updateProfil(session('nis'), $request->all());
+
+            // Update session nama kalau berubah
+            return redirect()->route('siswa.pengaturan')
+                ->with('success', 'Profil berhasil diperbarui.');
+        } catch (Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
+
+    public function gantiPassword(Request $request)
+    {
+        $request->validate([
+            'password_lama' => 'required',
+            'password_baru' => 'required|min:6|confirmed',
+        ], [
+            'password_baru.confirmed' => 'Konfirmasi password baru tidak sesuai.',
+            'password_baru.min'       => 'Password baru minimal 6 karakter.',
+        ]);
+
+        try {
+            $this->siswaService->gantiPassword(
+                session('nis'),
+                $request->password_lama,
+                $request->password_baru,
+            );
+
+            return redirect()->route('siswa.pengaturan')
+                ->with('success', 'Password berhasil diubah. Silakan login ulang.')
+                ->withCookie(cookie()->forget('laravel_session'));
+        } catch (Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+    }
 }

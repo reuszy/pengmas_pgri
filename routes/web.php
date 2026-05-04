@@ -67,6 +67,11 @@ Route::prefix('siswa')->group(function () {
     // ATUR PASSWORD
     Route::get('/atur-password',    [SiswaAuthController::class, 'showAturPasswordForm'])->name('siswa.atur_password');
     Route::post('/atur-password',   [SiswaAuthController::class, 'aturPasswordSubmit'])->name('siswa.atur_password.submit');
+
+    // PENGATURAN AKUN
+    Route::get('/pengaturan',          [SiswaController::class, 'pengaturan'])->name('siswa.pengaturan');
+    Route::put('/pengaturan/profil',   [SiswaController::class, 'updateProfil'])->name('siswa.pengaturan.profil');
+    Route::put('/pengaturan/password', [SiswaController::class, 'gantiPassword'])->name('siswa.pengaturan.password');
 });
 
 

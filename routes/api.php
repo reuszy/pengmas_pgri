@@ -33,8 +33,13 @@ Route::prefix('kelas')->middleware('auth:api')->group(function (){
 // API Siswa
 Route::prefix('siswa')->middleware('auth:api')->group(function () {
     Route::get('/',         [SiswaController::class, 'index']);
-    Route::get('/{nis}',    [SiswaController::class, 'show']);
     Route::post('/',        [SiswaController::class, 'store']);
+
+    Route::get('/profil',          [SiswaController::class, 'profil']);
+    Route::put('/profil',          [SiswaController::class, 'updateProfil']);
+    Route::put('/ganti-password',  [SiswaController::class, 'gantiPassword']);
+
+    Route::get('/{nis}',    [SiswaController::class, 'show']);
     Route::put('/{nis}',    [SiswaController::class, 'update']);
     Route::delete('/{nis}', [SiswaController::class, 'destroy']);
 });

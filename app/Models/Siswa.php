@@ -23,12 +23,6 @@ class Siswa extends Model
         'id_kelas',
         'nomor_telepon',
         'email',
-        'password'
-    ];
-
-
-    protected $hidden = [
-        'password',
     ];
 
 
